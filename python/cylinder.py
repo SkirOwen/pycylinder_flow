@@ -58,8 +58,9 @@ cy = [0, 0, 1, 0, -1, 1, 1, -1, -1]
 opp = [1, 4, 5, 2, 3, 8, 9, 6, 7]
 # col = [2:(ly - 1)]
 col = np.arange(2, ly)
-inlet = 1  # position of inlet
-outlet = lx  # position of outlet
+# Matlab start
+inlet = 0               # position of inlet
+outlet = lx - 1         # position of outlet
 
 # [y,x] = meshgrid(1:ly,1:lx) # get coordinate of matrix indices
 y, x = np.meshgrid(np.arange(1, ly + 1), np.arange(1, lx + 1))
