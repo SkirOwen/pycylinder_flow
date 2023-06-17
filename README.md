@@ -1,4 +1,9 @@
-# Py Cylinder Flow
+# PyCylinder Flow
+
+![Static Badge](https://img.shields.io/badge/python->3.11-blue?logo=python)
+![GitHub](https://img.shields.io/github/license/SkirOwen/pycylinder_flow)
+
+
 
 `cylinder.py` runs the flow field over a grid of size `(lx, ly)` 
 (preset as quite course in the file and you probably want to refine).  
