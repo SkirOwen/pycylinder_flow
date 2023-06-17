@@ -3,8 +3,14 @@
 ![Static Badge](https://img.shields.io/badge/python-blue?logo=python&logoColor=yellow)
 ![GitHub](https://img.shields.io/github/license/SkirOwen/pycylinder_flow?color=green)
 
+This code is a python translation of the MATLAB code of Jonas Latt; 
+see section `Original Code` for details.
 
+## Installation
+Install the requirements from `requirements.txt`.  
+It is recommended to use a virtual environment for that.
 
+## Usage
 `cylinder.py` runs the flow field over a grid of size `(lx, ly)` 
 (preset as quite course in the file and you probably want to refine).  
 To reach a stable regime `max_t > 2000`.
