@@ -1,0 +1,6 @@
+cmocean
+matplotlib
+numpy
+pillow
+scipy
+tqdm
