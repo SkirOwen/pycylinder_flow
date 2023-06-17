@@ -36,10 +36,6 @@ from tqdm import tqdm
 from PIL import Image
 import cmocean as cm
 
-import asyncio
-import threading
-from concurrent.futures import ThreadPoolExecutor
-
 
 def run(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 	obst_x = lx / 5 + 1             # position of the cylinder (exact
