@@ -25,23 +25,23 @@
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA  02110-1301, USA.
 ##################################################################
+import glob
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io
+from tqdm import tqdm
+
+from PIL import Image
+import cmocean as cm
+
+import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 
-def run(maxT):
-	# GENERAL FLOW CONSTANTS
-	lx = 400                        # number of cells in x-direction
-	ly = 100                        # number of cells in y-direction
-
-	lx = 2 * 50                     # number of cells in x-direction
-	ly = 2 * 25                     # number of cells in y-direction
-
-	# lx = 2 * 10                     # number of cells in x-direction
-	# ly = 2 * 9                     # number of cells in y-direction
-
+def run(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 	obst_x = lx / 5 + 1             # position of the cylinder (exact
 	obst_y = ly / 2 + 3             # y-symmetry is avoided)
 	obst_r = ly / 10 + 1            # radius of the cylinder
@@ -50,102 +50,89 @@ def run(maxT):
 	Re = 100                        # Reynolds number
 	nu = uMax * 2 * obst_r / Re     # kinematic viscosity
 	omega = 1 / (3 * nu + 1 / 2)    # relaxation parameter
-	# maxT   = 2*400000             # total number of iterations
-	tPlot = 1 * 50                  # cycles
-	# maxT = 5000                     # total number of iterations
 
-	# up = zeros([1, maxT])
-	up = np.zeros(maxT)
+	tPlot = 1 * 50                  # cycles
+
+	# up = np.zeros(max_t)
 
 	# D2Q9 LATTICE CONSTANTS
-	t = [4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36]
-	cx = [0, 1, 0, -1, 0, 1, -1, -1, 1]
-	cy = [0, 0, 1, 0, -1, 1, 1, -1, -1]
-	opp = [1, 4, 5, 2, 3, 8, 9, 6, 7] # TODO: zero base this
+	t = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
+	cx = np.array([0, 1, 0, -1, 0, 1, -1, -1, 1])
+	cy = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1])
+	opp = [0, 3, 4, 1, 2, 7, 8, 5, 6]
 	# col = [2:(ly - 1)]
-	col = np.arange(2, ly)
-	# Matlab start
+	col = np.arange(1, ly-1)
 	inlet = 0               # position of inlet
 	outlet = lx - 1         # position of outlet
 
-	# [y,x] = meshgrid(1:ly,1:lx) # get coordinate of matrix indices
+	# x is downstream
 	y, x = np.meshgrid(np.arange(1, ly + 1), np.arange(1, lx + 1))
-	# x is downstream.
 
-	# obst = ...                   # Location of cylinder
-	#     (x-obst_x).^2 + (y-obst_y).^2 <= obst_r.^2
-	# obst(:,[1,ly]) = 1    # Location of top/bottom boundary
-	# bbRegion = find(obst) # Boolean mask for bounce-back cells
-
-	obst = (x - obst_x) ** 2 + (y - obst_y) ** 2 <= obst_r ** 2  # Mask of the location of the cylinder
-	obst[:, [0, ly - 1]] = True  # Set location of top/bottom boundary
-	# bbRegion = np.where(obst)  # Boolean mask for bounce-back cells
-	# bbRegion = np.where(obst.T.flatten())  # Same behaviour as matlab
+	# Mask of the location of the cylinder
+	obst = (x - obst_x) ** 2 + (y - obst_y) ** 2 <= obst_r ** 2
+	# Set location of top/bottom boundary
+	obst[:, [0, ly - 1]] = True
+	# Boolean mask for bounce-back cells
 	bbRegion = np.where(obst)
-	# np.nonzero(obst.T.flatten())[0]
 
 	# INITIAL CONDITION: Poiseuille profile at equilibrium
 	L = ly - 2
 	y_phys = y - 1.5
 	ux = 4 * uMax / (L * L) * (y_phys * L - y_phys * y_phys)
-	# uy = zeros(lx,ly)
 	uy = np.zeros((lx, ly))
 	rho = 1
 	fIn = np.zeros((9, lx, ly))
 
 	for i in range(9):
 		cu = 3 * (cx[i] * ux + cy[i] * uy)
-		fIn[i] = rho * t[i] * (1 + cu + 1 / 2 * (cu * cu) - 3 / 2 * (ux ** 2 + uy ** 2))
+		fIn[i] = rho * t[i] * (1 + cu + 1/2 * (cu * cu) - 3/2 * (ux ** 2 + uy ** 2))
 
 	# MAIN LOOP (TIME CYCLES)
-	for cycle in range(maxT):
+	for cycle in tqdm(range(max_t), desc="Lattice Boltzmann Simulation", unit="step"):
 
 		# MACROSCOPIC VARIABLES
 		rho = np.sum(fIn, axis=0)
-		# np.sum(fIn, axis=0) would also work
 		fIn_reshape = np.reshape(fIn, (9, lx * ly), order="F")
 		# Matlab is fortran style for reshape.
-		# This is also a solution.
-		# fIn_reshape = fIn.T.reshape((lx*ly, 9)).T
 		ux = np.reshape(np.dot(cx, fIn_reshape), (lx, ly), order="F") / rho
-
-		# TODO: uy is somewhat different than MATLAB. Assuming it is do to precision
+		# uy is somewhat different from MATLAB. Assuming it is due to precision
 		uy = np.reshape(np.dot(cy, fIn_reshape), (lx, ly), order="F") / rho
 		# For some reason the first column as been put last compare to the matlab
-		# uy_last = uy[..., -1].copy()
-		# uy[..., 1:] = uy[..., :-1]
-		# uy[..., 0] = uy_last
 
 		# MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
 		# Inlet: Poiseuille profile
-		y_phys = col - 1.5
+		y_phys = col - 0.5
 
-		col -= 1
 		ux[inlet, col] = 4 * uMax / (L * L) * (y_phys * L - y_phys * y_phys)
 		uy[inlet, col] = 0
 		rho[inlet, col] = (
-				1 / (1 - ux[inlet, col]) *
-				(np.sum(fIn[np.ix_([0, 2, 4], [inlet], col)], axis=0) + 2 * np.sum(fIn[np.ix_([3, 6, 7], [inlet], col)], axis=0))
+			1 / (1 - ux[inlet, col]) *
+			(
+				np.sum(fIn[np.ix_([0, 2, 4], [inlet], col)], axis=0) +
+				2 * np.sum(fIn[np.ix_([3, 6, 7], [inlet], col)], axis=0)
+			)
 		)
 
 		# Outlet: Constant pressure
 		rho[outlet, col] = 1
 		ux[outlet, col] = (
-				-1 + 1 / (rho[outlet, col]) *
-				(np.sum(fIn[np.ix_([0, 2, 4], [outlet], col)], axis=0) + 2 * np.sum(fIn[np.ix_([1, 5, 8], [outlet], col)], axis=0))
+			-1 + 1 / (rho[outlet, col]) *
+			(
+				np.sum(fIn[np.ix_([0, 2, 4], [outlet], col)], axis=0) +
+				2 * np.sum(fIn[np.ix_([1, 5, 8], [outlet], col)], axis=0)
+			)
 		)
 		uy[outlet, col] = 0
 
-		# MICROSCOPIC BOUNDARY CONDITIONS: INLET (Zou/He BC)
+		# MICROSCOPIC BOUNDARY CONDITIONS:
+		# INLET (Zou/He BC)
 		fIn[1, inlet, col] = fIn[3, inlet, col] + 2 / 3 * rho[inlet, col] * ux[inlet, col]
-
 		fIn[5, inlet, col] = (
 				fIn[7, inlet, col] +
 				1 / 2 * (fIn[4, inlet, col] - fIn[2, inlet, col]) +
 				1 / 2 * rho[inlet, col] * uy[inlet, col] +
 				1 / 6 * rho[inlet, col] * ux[inlet, col]
 		)
-
 		fIn[8, inlet, col] = (
 				fIn[6, inlet, col] +
 				1 / 2 * (fIn[2, inlet, col] - fIn[4, inlet, col]) -
@@ -153,7 +140,7 @@ def run(maxT):
 				1 / 6 * rho[inlet, col] * ux[inlet, col]
 		)
 
-		# MICROSCOPIC BOUNDARY CONDITIONS: OUTLET (Zou/He BC)
+		# OUTLET (Zou/He BC)
 		fIn[3, outlet, col] = fIn[1, outlet, col] - 2 / 3 * rho[outlet, col] * ux[outlet, col]
 		fIn[7, outlet, col] = (
 				fIn[5, outlet, col] +
@@ -168,8 +155,10 @@ def run(maxT):
 				1 / 6 * rho[outlet, col] * ux[outlet, col]
 		)
 
-		fEq = np.zeros((9, lx, ly))  # Initialize equilibrium distribution
-		fOut = np.zeros((9, lx, ly))  # Initialize output distribution
+		# Initialize equilibrium distribution
+		fEq = np.zeros((9, lx, ly))
+		# Initialize output distribution
+		fOut = np.zeros((9, lx, ly))
 
 		# COLLISION STEP
 		for i in range(9):
@@ -179,67 +168,131 @@ def run(maxT):
 
 		# OBSTACLE (BOUNCE-BACK)
 		for i in range(9):
-			# TODO: remove the -1 for opp
-			fOut[i, bbRegion[0], bbRegion[1]] = fIn[opp[i] - 1, bbRegion[0], bbRegion[1]]
+			fOut[i, bbRegion[0], bbRegion[1]] = fIn[opp[i], bbRegion[0], bbRegion[1]]
 
 		# STREAMING STEP
 		for i in range(9):
 			fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i], cy[i]), axis=(0, 1))
 
-		# VISUALIZATION
-		if cycle % tPlot == 0:
-			print(cycle)
+		save_flow_png(ux, uy, lx, ly, bbRegion, cycle, max_t)
 
-		col += 1
-
-		plot(ux, uy, lx, ly, bbRegion, cycle, maxT)
+		save_velocity(ux, uy, lx, ly, cycle)
 
 
-def plot(ux, uy, lx, ly, bbRegion, cycle, maxT):
+def plot(
+		ux: np.ndarray,
+		uy: np.ndarray,
+		lx: int,
+		ly: int,
+		bbRegion: np.ndarray,
+		cycle: int,
+		maxT: int,
+		cmap=cm.cm.speed,
+		save: bool = False
+) -> None:
 	u = np.reshape(np.sqrt(ux ** 2 + uy ** 2), (lx, ly), order="F")
 	u[bbRegion[0], bbRegion[1]] = np.NAN
-	plt.imshow(u.conj().T)
+	plt.imshow(u.conj().T, cmap=cmap)
 	plt.axis("equal")
 	plt.axis("off")
 	# print("A")
-	# plt.show()
-	plt.savefig(f"./plots/{str(cycle).zfill(len(str(maxT)))}.png")
+	plt.show()
+	if save:
+		plt.savefig(f"./plots/{str(cycle).zfill(len(str(maxT)))}.png")
 
-	# # printf('%d of %d \n', cycle, maxT)
-# 	vx = np.reshape(ux, (lx, ly), order="F")
-# 	vy = np.reshape(uy, (lx, ly), order="F")
-# 	# fileName = f"Testvelocity_{cycle}.mat"
-# 	# data = {"vx": vx, "vy": vy}
-# 	# scipy.io.savemat(fileName, data)
-# 	#
-# 	vx = np.reshape(ux, (lx, ly), order="F")
-# 	vy = np.reshape(uy, (lx, ly), order="F")
-# 	# # no idea what the values in vx(..,..) should be. Just picking as smaller than the overall window size
-# 	# TODO: change this mess of indices
-# 	u = np.sqrt(vx[(2 * 50) - 1, (2 * 25) - 1] ** 2 + vy[(2 * 50) - 1, (2 * 25) - 1] ** 2)
-# 	up[cycle] = u
-# #
-# 	data = {
-# 		"bbRegion":  bbRegion,
-# 		"x":  x,
-# 		"y":  y,
-# 		"obst_x":  obst_x,
-# 		"obst_y":  obst_y,
-# 		"obst_r":  obst_r,
-# 		"nu":  nu,
-# 		"Re":  Re,
-# 		"uMax":  uMax,
-# 		"lx":  lx,
-# 		"ly":  ly,
-# 	}
-# 	np.save(
-# 		'TestSymVars.mat',
-# 		data
-# )
+
+def save_flow_png(
+		ux: np.ndarray,
+		uy: np.ndarray,
+		lx: int,
+		ly: int,
+		bbRegion: np.ndarray,
+		cycle: int,
+		maxT: int,
+		cmap=cm.cm.ice
+) -> None:
+	u = np.reshape(np.sqrt(ux ** 2 + uy ** 2), (lx, ly), order="F")
+	u[bbRegion[0], bbRegion[1]] = np.NAN
+
+	# Scale the velocity field to 0-255 range
+	u_scaled = (u - np.nanmin(u)) / (np.nanmax(u) - np.nanmin(u))
+	u_scaled = cmap(u_scaled.T) * 255
+	u_scaled = np.uint8(u_scaled)
+
+	# Create PIL Image object
+	img = Image.fromarray(u_scaled)
+
+	scale = 10
+	new_width = int(img.width * scale)
+	new_height = int(img.height * scale)
+
+	# Resize the image
+	resized_image = img.resize((new_width, new_height), resample=Image.NEAREST)
+
+	# Save the image
+	resized_image.save(f"./plots/{str(cycle).zfill(len(str(maxT)))}.png")
+
+
+def save_velocity(ux: np.ndarray, uy: np.ndarray, lx: int, ly: int, cycle: int) -> None:
+	# printf('%d of %d \n', cycle, maxT)
+	vx = np.reshape(ux, (lx, ly), order="F")
+	vy = np.reshape(uy, (lx, ly), order="F")
+	filepath = f"./velocity/Testvelocity_{cycle}.mat"
+	data = {"vx": vx, "vy": vy}
+	scipy.io.savemat(filepath, data)
+
+
+def save_sym_mat(
+		ux: np.ndarray,
+		uy: np.ndarray,
+		lx: int,
+		ly: int,
+		bbRegion: np.ndarray,
+		x: np.array,
+		y: np.array,
+		obst_x: float,
+		obst_y: float,
+		obst_r: float,
+		nu: float,
+		Re: float,
+		uMax: float,
+) -> None:
+	vx = np.reshape(ux, (lx, ly), order="F")
+	vy = np.reshape(uy, (lx, ly), order="F")
+	# # no idea what the values in vx(..,..) should be. Just picking as smaller than the overall window size
+	# TODO: change this mess of indices
+	u = np.sqrt(vx[(2 * 50) - 1, (2 * 25) - 1] ** 2 + vy[(2 * 50) - 1, (2 * 25) - 1] ** 2)
+	# up[cycle] = u
+#
+	data = {
+		"bbRegion":  bbRegion,
+		"x":  x,
+		"y":  y,
+		"obst_x":  obst_x,
+		"obst_y":  obst_y,
+		"obst_r":  obst_r,
+		"nu":  nu,
+		"Re":  Re,
+		"uMax":  uMax,
+		"lx":  lx,
+		"ly":  ly,
+	}
+	scipy.io.savemat(
+		'TestSymVars.mat',
+		data
+	)
+
+
+def clear_dir(target: str, extension: str):
+	file_pattern = f"*.{extension}"
+	files_to_delete = glob.glob(os.path.join(target, file_pattern))
+	for file in files_to_delete:
+		os.remove(file)
 
 
 def main():
-	run(maxT=300)
+	clear_dir(target="./plots/", extension="png")
+	run(max_t=400, lx=100, ly=50)
 
 
 if __name__ == '__main__':
