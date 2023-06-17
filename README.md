@@ -34,7 +34,10 @@ ffmpeg -i out.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palet
 ```
 
 ## Original code
-The original (unmodified) code in MATLAB is located in `./matlab_original`.
+The original (unmodified) code in `MATLAB` is located in `./matlab_original`.
 
 
 ## License
+The code is under the `GNU General Public License`, to continue under the same license as the
+original `MATLAB` code.
+The original license has been preserved where it was present in the original files.
