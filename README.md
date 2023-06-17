@@ -24,6 +24,10 @@ regime and not the setup time region.
 You can play with the obstacle size and position (obst_{x,y,r}),
 and the Reynolds number to generate more data.
 
+```shell
+python run.py -s 100 50 -i 400
+```
+
 
 ```bash
 $ ffmpeg -framerate 60 -pattern_type glob -i '*.png' -s:v 1920x1080 -c:v libx264 -pix_fmt yuv420p out.mp4
