@@ -298,7 +298,7 @@ def save_sym_mat(
 
 def main():
 	clear_dir(target="./plots/", extension="png")
-	run(max_t=400, lx=100, ly=50)
+	simulate(max_t=400, lx=100, ly=50)
 
 
 if __name__ == '__main__':
