@@ -43,7 +43,8 @@
 # If not, see <https://www.gnu.org/licenses/>.
 
 
-import numpy as np
+# import numpy as np
+import cupy as np
 import matplotlib.pyplot as plt
 import scipy.io
 from PIL import Image
@@ -72,7 +73,7 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 	t = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 	cx = np.array([0, 1, 0, -1, 0, 1, -1, -1, 1])
 	cy = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1])
-	opp = [0, 3, 4, 1, 2, 7, 8, 5, 6]
+	opp = np.array([0, 3, 4, 1, 2, 7, 8, 5, 6])
 	# col = [2:(ly - 1)]
 	col = np.arange(1, ly-1)
 	inlet = 0               # position of inlet
@@ -185,7 +186,7 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 
 		# STREAMING STEP
 		for i in range(9):
-			fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i], cy[i]), axis=(0, 1))
+			fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i].get(), cy[i].get()), axis=(0, 1))
 
 		save_flow_png(ux, uy, lx, ly, bbRegion, cycle, max_t)
 
@@ -229,7 +230,7 @@ def save_flow_png(
 
 	# Scale the velocity field to 0-255 range
 	u_scaled = (u - np.nanmin(u)) / (np.nanmax(u) - np.nanmin(u))
-	u_scaled = cmap(u_scaled.T) * 255
+	u_scaled = cmap(u_scaled.get().T) * 255
 	u_scaled = np.uint8(u_scaled)
 
 	# Create PIL Image object
