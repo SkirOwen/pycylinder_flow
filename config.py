@@ -47,5 +47,11 @@ def parser_cli() -> Namespace:
 		help="Size x, and y of the simulation"
 	)
 
+	parser.add_argument(
+		"--clear-output",
+		action="store_false",
+		help="Remove existing file."
+	)
+
 	args = parser.parse_args()
 	return args

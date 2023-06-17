@@ -17,6 +17,7 @@
 from config import make_logger
 from config import parser_cli
 from cylinder import simulate
+from utils import clear_dir
 
 
 logger = make_logger(
@@ -26,6 +27,7 @@ logger = make_logger(
 
 def main():
 	print(
+		"\n"
 		"PyCylinder_flow  Copyright (C) 2023  Owen Allemang\n"
 		"This program comes with ABSOLUTELY NO WARRANTY.\n"
 		"This is free software, and you are welcome to redistribute it\n"
@@ -42,6 +44,8 @@ def main():
 		f"{ly = }\n"
 		f"{max_t = }\n"
 	)
+	if args.clear_output:
+		clear_dir(target="./plots/", extension="png")
 
 	simulate(lx, ly, max_t)
 
