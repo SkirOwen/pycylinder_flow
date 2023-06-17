@@ -43,9 +43,6 @@
 # If not, see <https://www.gnu.org/licenses/>.
 
 
-import glob
-import os
-
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io
@@ -54,8 +51,10 @@ from tqdm import tqdm
 from PIL import Image
 import cmocean as cm
 
+from utils import clear_dir
 
-def run(lx: int = 400, ly: int = 100, max_t: int = 800_000):
+
+def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 	obst_x = lx / 5 + 1             # position of the cylinder (exact
 	obst_y = ly / 2 + 3             # y-symmetry is avoided)
 	obst_r = ly / 10 + 1            # radius of the cylinder
@@ -295,13 +294,6 @@ def save_sym_mat(
 		'TestSymVars.mat',
 		data
 	)
-
-
-def clear_dir(target: str, extension: str):
-	file_pattern = f"*.{extension}"
-	files_to_delete = glob.glob(os.path.join(target, file_pattern))
-	for file in files_to_delete:
-		os.remove(file)
 
 
 def main():
