@@ -25,16 +25,15 @@ for cycle in range(2000, maxT + 1, tPlot): #maxT
 	test_data = scipy.io.loadmat(fileName)
 	u = np.sqrt(test_data['vx'] ** 2 + test_data['vy'] ** 2)
 
-
-    plt.figure(2)
-    plt.contourf(x / d, y / d, u, myContours, edgecolor='none')
-    plt.gca().set_aspect('equal')
-    plt.xlabel('x/d')
-    plt.ylabel('y/d')
-    plt.title(f'Time step {cycle}')
-    plt.colorbar()
-    plt.clim(min(myContours), max(myContours))
-    plt.show()
+	plt.figure(2)
+	plt.contourf(x / d, y / d, u, myContours, edgecolor='none')
+	plt.gca().set_aspect('equal')
+	plt.xlabel('x/d')
+	plt.ylabel('y/d')
+	plt.title(f'Time step {cycle}')
+	plt.colorbar()
+	plt.clim(min(myContours), max(myContours))
+	plt.show()
 
 	# figure(2)
 	# contourf(x/d,y/d,u,myContours,'edgecolor','none'), hold on
