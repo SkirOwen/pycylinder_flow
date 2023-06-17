@@ -48,6 +48,7 @@ import matplotlib.pyplot as plt
 import scipy.io
 from PIL import Image
 from tqdm import tqdm
+from numba import jit
 
 import cmocean as cm
 
@@ -102,94 +103,100 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 
 	# MAIN LOOP (TIME CYCLES)
 	for cycle in tqdm(range(max_t), desc="Lattice Boltzmann Simulation", unit="step"):
-
-		# MACROSCOPIC VARIABLES
-		rho = np.sum(fIn, axis=0)
-		fIn_reshape = np.reshape(fIn, (9, lx * ly), order="F")
-		# Matlab is fortran style for reshape.
-		ux = np.reshape(np.dot(cx, fIn_reshape), (lx, ly), order="F") / rho
-		# uy is somewhat different from MATLAB. Assuming it is due to precision
-		uy = np.reshape(np.dot(cy, fIn_reshape), (lx, ly), order="F") / rho
-		# For some reason the first column as been put last compare to the matlab
-
-		# MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
-		# Inlet: Poiseuille profile
-		y_phys = col - 0.5
-
-		ux[inlet, col] = 4 * uMax / (L * L) * (y_phys * L - y_phys * y_phys)
-		uy[inlet, col] = 0
-		rho[inlet, col] = (
-			1 / (1 - ux[inlet, col]) *
-			(
-				np.sum(fIn[np.ix_([0, 2, 4], [inlet], col)], axis=0) +
-				2 * np.sum(fIn[np.ix_([3, 6, 7], [inlet], col)], axis=0)
-			)
-		)
-
-		# Outlet: Constant pressure
-		rho[outlet, col] = 1
-		ux[outlet, col] = (
-			-1 + 1 / (rho[outlet, col]) *
-			(
-				np.sum(fIn[np.ix_([0, 2, 4], [outlet], col)], axis=0) +
-				2 * np.sum(fIn[np.ix_([1, 5, 8], [outlet], col)], axis=0)
-			)
-		)
-		uy[outlet, col] = 0
-
-		# MICROSCOPIC BOUNDARY CONDITIONS:
-		# INLET (Zou/He BC)
-		fIn[1, inlet, col] = fIn[3, inlet, col] + 2 / 3 * rho[inlet, col] * ux[inlet, col]
-		fIn[5, inlet, col] = (
-				fIn[7, inlet, col] +
-				1 / 2 * (fIn[4, inlet, col] - fIn[2, inlet, col]) +
-				1 / 2 * rho[inlet, col] * uy[inlet, col] +
-				1 / 6 * rho[inlet, col] * ux[inlet, col]
-		)
-		fIn[8, inlet, col] = (
-				fIn[6, inlet, col] +
-				1 / 2 * (fIn[2, inlet, col] - fIn[4, inlet, col]) -
-				1 / 2 * rho[inlet, col] * uy[inlet, col] +
-				1 / 6 * rho[inlet, col] * ux[inlet, col]
-		)
-
-		# OUTLET (Zou/He BC)
-		fIn[3, outlet, col] = fIn[1, outlet, col] - 2 / 3 * rho[outlet, col] * ux[outlet, col]
-		fIn[7, outlet, col] = (
-				fIn[5, outlet, col] +
-				1 / 2 * (fIn[2, outlet, col] - fIn[4, outlet, col]) -
-				1 / 2 * rho[outlet, col] * uy[outlet, col] -
-				1 / 6 * rho[outlet, col] * ux[outlet, col]
-		)
-		fIn[6, outlet, col] = (
-				fIn[8, outlet, col] +
-				1 / 2 * (fIn[4, outlet, col] - fIn[2, outlet, col]) +
-				1 / 2 * rho[outlet, col] * uy[outlet, col] -
-				1 / 6 * rho[outlet, col] * ux[outlet, col]
-		)
-
-		# Initialize equilibrium distribution
-		fEq = np.zeros((9, lx, ly))
-		# Initialize output distribution
-		fOut = np.zeros((9, lx, ly))
-
-		# COLLISION STEP
-		for i in range(9):
-			cu = 3 * (cx[i] * ux + cy[i] * uy)
-			fEq[i, :, :] = rho * t[i] * (1 + cu + 1/2 * (cu * cu) - 3/2 * (ux ** 2 + uy ** 2))
-			fOut[i, :, :] = fIn[i, :, :] - omega * (fIn[i, :, :] - fEq[i, :, :])
-
-		# OBSTACLE (BOUNCE-BACK)
-		for i in range(9):
-			fOut[i, bbRegion[0], bbRegion[1]] = fIn[opp[i], bbRegion[0], bbRegion[1]]
-
-		# STREAMING STEP
-		for i in range(9):
-			fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i], cy[i]), axis=(0, 1))
+		fIn = lattice_boltzmann(fIn, lx, ly, col, cx, cy, inlet, outlet, uMax, L, t, omega, bbRegion, opp)
 
 		save_flow_png(ux, uy, lx, ly, bbRegion, cycle, max_t)
 
 		save_velocity(ux, uy, lx, ly, cycle)
+
+
+@jit(forceobj=True)
+def lattice_boltzmann(fIn, lx, ly, col, cx, cy, inlet, outlet, uMax, L, t, omega, bbRegion, opp):
+	# MACROSCOPIC VARIABLES
+	rho = np.sum(fIn, axis=0)
+	fIn_reshape = np.reshape(fIn, (9, lx * ly), order="F")
+	# Matlab is fortran style for reshape.
+	ux = np.reshape(np.dot(cx, fIn_reshape), (lx, ly), order="F") / rho
+	# uy is somewhat different from MATLAB. Assuming it is due to precision
+	uy = np.reshape(np.dot(cy, fIn_reshape), (lx, ly), order="F") / rho
+	# For some reason the first column as been put last compare to the matlab
+
+	# MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
+	# Inlet: Poiseuille profile
+	y_phys = col - 0.5
+
+	ux[inlet, col] = 4 * uMax / (L * L) * (y_phys * L - y_phys * y_phys)
+	uy[inlet, col] = 0
+	rho[inlet, col] = (
+			1 / (1 - ux[inlet, col]) *
+			(
+					np.sum(fIn[np.ix_([0, 2, 4], [inlet], col)], axis=0) +
+					2 * np.sum(fIn[np.ix_([3, 6, 7], [inlet], col)], axis=0)
+			)
+	)
+
+	# Outlet: Constant pressure
+	rho[outlet, col] = 1
+	ux[outlet, col] = (
+			-1 + 1 / (rho[outlet, col]) *
+			(
+					np.sum(fIn[np.ix_([0, 2, 4], [outlet], col)], axis=0) +
+					2 * np.sum(fIn[np.ix_([1, 5, 8], [outlet], col)], axis=0)
+			)
+	)
+	uy[outlet, col] = 0
+
+	# MICROSCOPIC BOUNDARY CONDITIONS:
+	# INLET (Zou/He BC)
+	fIn[1, inlet, col] = fIn[3, inlet, col] + 2 / 3 * rho[inlet, col] * ux[inlet, col]
+	fIn[5, inlet, col] = (
+			fIn[7, inlet, col] +
+			1 / 2 * (fIn[4, inlet, col] - fIn[2, inlet, col]) +
+			1 / 2 * rho[inlet, col] * uy[inlet, col] +
+			1 / 6 * rho[inlet, col] * ux[inlet, col]
+	)
+	fIn[8, inlet, col] = (
+			fIn[6, inlet, col] +
+			1 / 2 * (fIn[2, inlet, col] - fIn[4, inlet, col]) -
+			1 / 2 * rho[inlet, col] * uy[inlet, col] +
+			1 / 6 * rho[inlet, col] * ux[inlet, col]
+	)
+
+	# OUTLET (Zou/He BC)
+	fIn[3, outlet, col] = fIn[1, outlet, col] - 2 / 3 * rho[outlet, col] * ux[outlet, col]
+	fIn[7, outlet, col] = (
+			fIn[5, outlet, col] +
+			1 / 2 * (fIn[2, outlet, col] - fIn[4, outlet, col]) -
+			1 / 2 * rho[outlet, col] * uy[outlet, col] -
+			1 / 6 * rho[outlet, col] * ux[outlet, col]
+	)
+	fIn[6, outlet, col] = (
+			fIn[8, outlet, col] +
+			1 / 2 * (fIn[4, outlet, col] - fIn[2, outlet, col]) +
+			1 / 2 * rho[outlet, col] * uy[outlet, col] -
+			1 / 6 * rho[outlet, col] * ux[outlet, col]
+	)
+
+	# Initialize equilibrium distribution
+	fEq = np.zeros((9, lx, ly))
+	# Initialize output distribution
+	fOut = np.zeros((9, lx, ly))
+
+	# COLLISION STEP
+	for i in range(9):
+		cu = 3 * (cx[i] * ux + cy[i] * uy)
+		fEq[i, :, :] = rho * t[i] * (1 + cu + 1 / 2 * (cu * cu) - 3 / 2 * (ux ** 2 + uy ** 2))
+		fOut[i, :, :] = fIn[i, :, :] - omega * (fIn[i, :, :] - fEq[i, :, :])
+
+	# OBSTACLE (BOUNCE-BACK)
+	for i in range(9):
+		fOut[i, bbRegion[0], bbRegion[1]] = fIn[opp[i], bbRegion[0], bbRegion[1]]
+
+	# STREAMING STEP
+	for i in range(9):
+		fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i], cy[i]), axis=(0, 1))
+
+	return fIn
 
 
 def plot(
