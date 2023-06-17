@@ -1,7 +1,7 @@
 # PyCylinder Flow
 
-![Static Badge](https://img.shields.io/badge/python->3.11-blue?logo=python)
-![GitHub](https://img.shields.io/github/license/SkirOwen/pycylinder_flow)
+![Static Badge](https://img.shields.io/badge/python-blue?logo=python&logoColor=yellow)
+![GitHub](https://img.shields.io/github/license/SkirOwen/pycylinder_flow?color=green)
 
 
 
@@ -24,8 +24,17 @@ regime and not the setup time region.
 You can play with the obstacle size and position (obst_{x,y,r}),
 and the Reynolds number to generate more data.
 
+
+```bash
+$ ffmpeg -framerate 60 -pattern_type glob -i '*.png' -s:v 1920x1080 -c:v libx264 -pix_fmt yuv420p out.mp4
+```
+
+```bash
+ffmpeg -i out.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 output.gif
+```
+
 ## Original code
-The original (unmodified) code in MATLAB is located in `matlab_original`.
+The original (unmodified) code in MATLAB is located in `./matlab_original`.
 
 
 ## License
