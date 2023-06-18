@@ -47,6 +47,18 @@ ffmpeg -i out.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palet
 The original (unmodified) code in `MATLAB` is located in `./matlab_original`.
 
 
+## Translation issue
+This translation is not compatible with the MATLAB output.
+You cannot directly feed the output of the python code directly into MATLAB code that would expect
+the MATLAB output.
+The file format is the same.
+One place, I noticed it was not compatible, was for the mask used to block-out obstacle. 
+In MATLAB it is a 1D array that is _magically_ understood by MATLAB as indices (even if it multidimensional),
+however, in the python equivalent, it is a tuple of the coordinates (x, y).
+If someone wants to use the python output as a MATLAB input (for whatever reason), they may need to
+be aware of this as it might cause issues in MATLAB later.
+
+
 ## License
 The code is under the `GNU General Public License`, to continue under the same license as the
 original `MATLAB` code.
