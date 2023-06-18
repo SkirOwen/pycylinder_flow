@@ -34,13 +34,16 @@ and the Reynolds number to generate more data.
 python run.py -s 100 50 -i 400
 ```
 
+If you are on Linux/WSL and have ffmpeg installed, you can generate a video from the images generated
+with the following command
 
 ```bash
 $ ffmpeg -framerate 60 -pattern_type glob -i '*.png' -s:v 1920x1080 -c:v libx264 -pix_fmt yuv420p out.mp4
 ```
 
+This one creates a gif from the video (I believe there's a better way to this).
 ```bash
-ffmpeg -i out.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 output.gif
+$ ffmpeg -i out.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 output.gif
 ```
 
 ## Original code
