@@ -43,3 +43,9 @@ def clear_dir(target: str, extension: str):
 		os.remove(file)
 
 
+def plot_dir() -> str:
+	return guarantee_existence("./plots")
+
+
+def velocity_dir() -> str:
+	return guarantee_existence("./velocity")

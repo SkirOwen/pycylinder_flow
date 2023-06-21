@@ -42,7 +42,7 @@
 # You should have received a copy of the GNU General Public License along with Foobar.
 # If not, see <https://www.gnu.org/licenses/>.
 
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io
@@ -51,7 +51,7 @@ from tqdm import tqdm
 
 import cmocean as cm
 
-from utils import clear_dir
+from utils import clear_dir, plot_dir, velocity_dir
 
 
 def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
@@ -211,7 +211,11 @@ def plot(
 	# print("A")
 	plt.show()
 	if save:
-		plt.savefig(f"./plots/{str(cycle).zfill(len(str(maxT)))}.png")
+		plt.savefig(
+		os.path.join(
+			plot_dir(),
+			f"{str(cycle).zfill(len(str(maxT)))}.png"
+		))
 
 
 def save_flow_png(
@@ -243,14 +247,23 @@ def save_flow_png(
 	resized_image = img.resize((new_width, new_height), resample=Image.NEAREST)
 
 	# Save the image
-	resized_image.save(f"./plots/{str(cycle).zfill(len(str(maxT)))}.png")
+	resized_image.save(
+		os.path.join(
+			plot_dir(),
+			f"{str(cycle).zfill(len(str(maxT)))}.png"
+		)
+	)
 
 
 def save_velocity(ux: np.ndarray, uy: np.ndarray, lx: int, ly: int, cycle: int) -> None:
 	# printf('%d of %d \n', cycle, maxT)
 	vx = np.reshape(ux, (lx, ly), order="F")
 	vy = np.reshape(uy, (lx, ly), order="F")
-	filepath = f"./velocity/Testvelocity_{cycle}.mat"
+	filepath = os.path.join(
+		velocity_dir(),
+		f"Testvelocity_{cycle}.mat"
+	)
+
 	data = {"vx": vx, "vy": vy}
 	scipy.io.savemat(filepath, data)
 
@@ -289,6 +302,9 @@ def save_sym_mat(
 		"uMax":  uMax,
 		"lx":  lx,
 		"ly":  ly,
+		# ans
+		# j
+		# DATA
 	}
 	scipy.io.savemat(
 		'TestSymVars.mat',
