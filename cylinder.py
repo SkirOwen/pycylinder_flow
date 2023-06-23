@@ -190,6 +190,7 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 		save_flow_png(ux, uy, lx, ly, bbRegion, cycle, max_t)
 
 		save_velocity(ux, uy, lx, ly, cycle)
+	save_sym_mat(ux, uy, lx, ly, bbRegion, x, y, obst_x, obst_y, obst_r, nu, Re, uMax)
 
 
 def plot(
@@ -289,6 +290,7 @@ def save_sym_mat(
 	# TODO: change this mess of indices
 	u = np.sqrt(vx[(2 * 50) - 1, (2 * 25) - 1] ** 2 + vy[(2 * 50) - 1, (2 * 25) - 1] ** 2)
 	# up[cycle] = u
+	DATA = np.vstack((vx, vy))
 #
 	data = {
 		"bbRegion":  bbRegion,
@@ -302,12 +304,13 @@ def save_sym_mat(
 		"uMax":  uMax,
 		"lx":  lx,
 		"ly":  ly,
+		"DATA": DATA,
 		# ans
 		# j
 		# DATA
 	}
 	scipy.io.savemat(
-		'TestSymVars.mat',
+		"./TestSymVars.mat",
 		data
 	)
 
