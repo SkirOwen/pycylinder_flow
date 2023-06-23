@@ -38,11 +38,11 @@ def main():
 	max_t = args.iter
 	logger.info(
 		f"\n"
-		f"Parameters\n"
-		f"----------\n"
-		f"{lx = }\n"
-		f"{ly = }\n"
-		f"{max_t = }\n"
+		f" Parameters | Value  \n"
+		f"------------+--------\n"
+		f" lx         | {lx}   \n"
+		f" ly         | {ly}   \n"
+		f" max_t      | {max_t}\n"
 	)
 	if args.clear_output:
 		clear_dir(target="./plots/", extension="png")
