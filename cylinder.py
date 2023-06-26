@@ -54,7 +54,7 @@ import cmocean as cm
 from utils import clear_dir, plot_dir, velocity_dir
 
 
-def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
+def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000, obst_type: str = "cylinder"):
 	obst_x = lx / 5 + 1             # position of the cylinder (exact
 	obst_y = ly / 2 + 3             # y-symmetry is avoided)
 	obst_r = ly / 10 + 1            # radius of the cylinder
@@ -81,8 +81,11 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 	# x is downstream
 	y, x = np.meshgrid(np.arange(1, ly + 1), np.arange(1, lx + 1))
 
-	# Mask of the location of the cylinder
-	obst = (x - obst_x) ** 2 + (y - obst_y) ** 2 <= obst_r ** 2
+	# Mask of the location of the obstacle
+	if obst_type == "square":
+		obst = np.logical_and(np.abs(x - obst_x) <= obst_r, np.abs(y - obst_y) <= obst_r)
+	else:   # Cylinder
+		obst = (x - obst_x) ** 2 + (y - obst_y) ** 2 <= obst_r ** 2
 	# Set location of top/bottom boundary
 	obst[:, [0, ly - 1]] = True
 	# Boolean mask for bounce-back cells
@@ -100,6 +103,8 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 		cu = 3 * (cx[i] * ux + cy[i] * uy)
 		fIn[i] = rho * t[i] * (1 + cu + 1/2 * (cu * cu) - 3/2 * (ux ** 2 + uy ** 2))
 
+	data = []
+
 	# MAIN LOOP (TIME CYCLES)
 	for cycle in tqdm(range(max_t), desc="Lattice Boltzmann Simulation", unit="step"):
 
@@ -111,6 +116,7 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 		# uy is somewhat different from MATLAB. Assuming it is due to precision
 		uy = np.reshape(np.dot(cy, fIn_reshape), (lx, ly), order="F") / rho
 		# For some reason the first column as been put last compare to the matlab
+
 
 		# MACROSCOPIC (DIRICHLET) BOUNDARY CONDITIONS
 		# Inlet: Poiseuille profile
@@ -186,11 +192,13 @@ def simulate(lx: int = 400, ly: int = 100, max_t: int = 800_000):
 		# STREAMING STEP
 		for i in range(9):
 			fIn[i, :, :] = np.roll(fOut[i, :, :], shift=(cx[i], cy[i]), axis=(0, 1))
-
+		data.append(np.hstack((ux.flatten(order="F"), uy.flatten(order="F"))))
 		save_flow_png(ux, uy, lx, ly, bbRegion, cycle, max_t)
 
 		save_velocity(ux, uy, lx, ly, cycle)
-	save_sym_mat(ux, uy, lx, ly, bbRegion, x, y, obst_x, obst_y, obst_r, nu, Re, uMax)
+
+	data.append(np.hstack((ux.flatten(order="F"), uy.flatten(order="F"))))
+	save_sym_mat(np.array(data).T, ux, uy, lx, ly, bbRegion, x, y, obst_x, obst_y, obst_r, nu, Re, uMax)
 
 
 def plot(
@@ -270,6 +278,7 @@ def save_velocity(ux: np.ndarray, uy: np.ndarray, lx: int, ly: int, cycle: int) 
 
 
 def save_sym_mat(
+		data: np.ndarray,
 		ux: np.ndarray,
 		uy: np.ndarray,
 		lx: int,
@@ -290,7 +299,7 @@ def save_sym_mat(
 	# TODO: change this mess of indices
 	u = np.sqrt(vx[(2 * 50) - 1, (2 * 25) - 1] ** 2 + vy[(2 * 50) - 1, (2 * 25) - 1] ** 2)
 	# up[cycle] = u
-	DATA = np.vstack((vx, vy))
+	print(data.shape)
 #
 	data = {
 		"bbRegion":  bbRegion,
@@ -304,7 +313,7 @@ def save_sym_mat(
 		"uMax":  uMax,
 		"lx":  lx,
 		"ly":  ly,
-		"DATA": DATA,
+		"DATA": data,
 		# ans
 		# j
 		# DATA
@@ -317,7 +326,7 @@ def save_sym_mat(
 
 def main():
 	clear_dir(target="./plots/", extension="png")
-	simulate(max_t=400, lx=100, ly=50)
+	simulate(max_t=400, lx=100, ly=50, obst_type="square")
 
 
 if __name__ == '__main__':
