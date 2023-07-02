@@ -14,6 +14,10 @@ see section `Original Code` for details.
 Install the requirements from `requirements.txt`.  
 It is recommended to use a virtual environment for that.
 
+```shell
+pip install -r requirement.txt
+```
+
 ## Usage
 `cylinder.py` runs the flow field over a grid of size `(lx, ly)` 
 (preset as quite course in the file and you probably want to refine).  
@@ -55,12 +59,12 @@ The original (unmodified) code in `MATLAB` is located in `./matlab_original`.
 
 
 ## Translation issue
-This translation is not compatible with the MATLAB output.
-You cannot directly feed the output of the python code directly into MATLAB code that would expect
-the MATLAB output.
+This translation is does not compatible with the MATLAB output.
+From the rapid testing I did, you cannot directly feed the output of the python code directly 
+into MATLAB code that would expect the MATLAB output.
 The file format is the same.
 One place, I noticed it was not compatible, was for the mask used to block-out obstacle. 
-In MATLAB it is a 1D array that is _magically_ understood by MATLAB as indices (even if it multidimensional),
+In MATLAB, it is a 1D array that is _magically_ understood by MATLAB as indices (even if it multidimensional),
 however, in the python equivalent, it is a tuple of the coordinates (x, y).
 If someone wants to use the python output as a MATLAB input (for whatever reason), they may need to
 be aware of this as it might cause issues in MATLAB later.
