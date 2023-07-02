@@ -6,6 +6,10 @@
 This code is a python translation of the MATLAB code of Jonas Latt; 
 see section `Original Code` for details.
 
+<p align="center">
+	<img width="800" alt="Flow around a cylinder" src="assets/cylinder.gif">
+</p>
+
 ## Installation
 Install the requirements from `requirements.txt`.  
 It is recommended to use a virtual environment for that.
